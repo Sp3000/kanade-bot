@@ -1,0 +1,10 @@
+[project]
+name = "kanade-bot"
+version = "0.1.0"
+requires-python = ">=3.13"
+description = "Discord bot for SOUND VOLTEX song information and utilities"
+readme = "README.md"
+dependencies = [
+    "discord-py==2.5.2",
+    "requests==2.34.2",
+]

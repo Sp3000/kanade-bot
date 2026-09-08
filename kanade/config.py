@@ -1,0 +1,6 @@
+import os
+
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+SCRAPER_WEBHOOK_URL = os.getenv("SCRAPER_WEBHOOK_URL")
+
+IS_STAGING = os.getenv("DISCORD_BOT_ENVIRONMENT") == "staging"

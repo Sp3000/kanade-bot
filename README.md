@@ -1,2 +1,2 @@
-# kanade
-WIP version 2 for a SOUND VOLTEX Discord Bot
+# Kanade
+SOUND VOLTEX Discord Bot v2
