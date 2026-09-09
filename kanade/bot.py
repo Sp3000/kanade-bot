@@ -6,10 +6,6 @@ from discord import app_commands
 from . import config
 
 logger = logging.getLogger(__name__)
-if config.IS_STAGING:
-    logging.basicConfig(level=logging.DEBUG)
-else:
-    logging.basicConfig(level=logging.INFO)
 
 client = discord.Client(intents=discord.Intents.default())
 tree = app_commands.CommandTree(client)
@@ -27,6 +23,7 @@ async def on_ready() -> None:
 
 
 def main() -> None:
+    config.setup_logging()
     client.run(config.DISCORD_BOT_TOKEN, log_handler=None)
 
 

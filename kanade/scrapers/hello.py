@@ -1,12 +1,7 @@
-from discord import SyncWebhook
+"""Example scraper."""
 
-from .. import config
-
-
-def main() -> None:
-    webhook = SyncWebhook.from_url(config.SCRAPER_WEBHOOK_URL)
-    webhook.send("Test scraper ran.")
+from collections.abc import Iterator
 
 
-if __name__ == "__main__":
-    main()
+def scrape() -> Iterator[str]:
+    yield "Test scraper ran."
