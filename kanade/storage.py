@@ -43,9 +43,11 @@ _s3_client: S3Client = boto3.client(
 def _get(key: str) -> bytes | None:
     """Fetch an object's body, or None if it doesn't exist yet."""
     try:
-        return _s3_client.get_object(Bucket=config.KANADE_S3_BUCKET, Key=key)["Body"].read()
-    except ClientError as exc:
-        if exc.response["Error"]["Code"] == "NoSuchKey":
+        return _s3_client.get_object(Bucket=config.KANADE_S3_BUCKET, Key=key)[
+            "Body"
+        ].read()
+    except ClientError as err:
+        if err.response["Error"]["Code"] == "NoSuchKey":
             return None
         raise
 
@@ -60,7 +62,7 @@ def load_songs() -> list[dict[str, Any]]:
 
 
 def save_songs(songs: list[dict[str, Any]]) -> None:
-    """Overwrite the songs snapshot."""
+    """Overwrite the songs snapshot. Assumes caller has the write lock."""
     _s3_client.put_object(
         Bucket=config.KANADE_S3_BUCKET,
         Key=SONGS_KEY,
@@ -70,7 +72,7 @@ def save_songs(songs: list[dict[str, Any]]) -> None:
 
 
 def append_changes(events: list[dict[str, Any]]) -> None:
-    """Append change events to the log."""
+    """Append change events to the log. Assumes caller has the write lock."""
     if not events:
         return
     body = _get(CHANGES_KEY)
@@ -106,20 +108,43 @@ def lock() -> Iterator[None]:
                 IfNoneMatch="*",
             )
             return True
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] == "PreconditionFailed":
+        except ClientError as err:
+            if err.response["Error"]["Code"] == "PreconditionFailed":
                 return False
             raise
 
     if not try_acquire():
-        existing = _get(LOCK_KEY)
-        acquired_at = json.loads(existing)["acquired_at"] if existing else 0
-        if time.time() - acquired_at < LOCK_STALE_AFTER_SECONDS:
-            raise LockHeldError("write.lock is held by another run")
-        logger.warning("write.lock is stale (acquired_at=%s), taking over", acquired_at)
-        _s3_client.delete_object(Bucket=config.KANADE_S3_BUCKET, Key=LOCK_KEY)
+        try:
+            existing = _s3_client.get_object(
+                Bucket=config.KANADE_S3_BUCKET, Key=LOCK_KEY
+            )
+        except ClientError as err:
+            if err.response["Error"]["Code"] != "NoSuchKey":
+                raise
+        else:
+            acquired_at = json.loads(existing["Body"].read())["acquired_at"]
+            if time.time() - acquired_at < LOCK_STALE_AFTER_SECONDS:
+                raise LockHeldError("write.lock is held by another run")
+            logger.warning(
+                "write.lock is stale (acquired_at=%s), taking over", acquired_at
+            )
+            try:
+                # IfMatch to only delete the exact lock object just read as stale, not
+                # a different new lock object from a separate run.
+                _s3_client.delete_object(
+                    Bucket=config.KANADE_S3_BUCKET,
+                    Key=LOCK_KEY,
+                    IfMatch=existing["ETag"],
+                )
+            except ClientError as err:
+                if err.response["Error"]["Code"] != "PreconditionFailed":
+                    raise
+                raise LockHeldError("write.lock changed during stale takeover") from err
+
         if not try_acquire():
-            raise LockHeldError("write.lock was re-acquired by another run during takeover")
+            raise LockHeldError(
+                "write.lock was re-acquired by another run during takeover"
+            )
 
     try:
         yield

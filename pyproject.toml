@@ -12,6 +12,8 @@ dependencies = [
 
 [tool.ruff.lint]
 extend-select = ["D", "PL"]
+# False positive on WSL/DrvFs mounts.
+ignore = ["EXE002"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

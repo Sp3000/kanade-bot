@@ -40,14 +40,14 @@ def main() -> None:
     try:
         with storage.lock():
             sections = _run_scrapers()
-    except storage.LockHeldError as exc:
-        logger.error("could not acquire %s: %s", storage.LOCK_KEY, exc)
-        post(webhook, f"Failed to acquire lock, skipped: {exc}")
+    except storage.LockHeldError as err:
+        logger.error("could not acquire %s: %s", storage.LOCK_KEY, err)
+        post(webhook, f"Failed to acquire lock, skipped: {err}")
         return
-    except Exception as exc:
+    except Exception as err:
         # Should not happen, but just in case it does.
         logger.exception("scraper run crashed")
-        post(webhook, f"Scraper run crashed: {exc!r}")
+        post(webhook, f"Scraper run crashed: {err!r}")
         raise
 
     post(webhook, "\n\n".join(sections))
@@ -61,9 +61,9 @@ def _run_scrapers() -> list[str]:
         try:
             for update in scrape():
                 updates.append(update)  # noqa: PERF402
-        except Exception as exc:
+        except Exception as err:
             logger.exception("%s failed", name)
-            error = repr(exc)
+            error = repr(err)
         else:
             error = None
 
