@@ -5,17 +5,21 @@ To add a scraper:
 - Add it to SCRAPERS
 """
 
+import argparse
 import logging
+from collections.abc import Callable, Iterator
 
 from discord import SyncWebhook
 
 from .. import config, storage
-from . import hello
+from . import sdvx_song_data
 
 logger = logging.getLogger(__name__)
 
-SCRAPERS = {
-    "Hello, World!": hello.scrape,
+Scraper = Callable[[], Iterator[str]]
+
+SCRAPERS: dict[str, Scraper] = {
+    "SDVX Song Data": sdvx_song_data.scrape,
 }
 
 MAX_MESSAGE_LENGTH = 2000
@@ -32,14 +36,39 @@ def post(webhook: SyncWebhook, text: str) -> None:
         webhook.send(text)
 
 
+def _parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Store data in the current directory instead of S3.",
+    )
+    parser.add_argument(
+        "--only",
+        choices=sorted(SCRAPERS),
+        action="append",
+        metavar="NAME",
+        help="Only run this scraper (repeatable). Defaults to all scrapers.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     """Run scrapers under the write lock and report results to the webhook."""
     config.setup_logging()
+    args = _parse_args()
+
+    if args.local:
+        storage.use_local_storage()
+
+    scrapers = {name: SCRAPERS[name] for name in (args.only or SCRAPERS)}
+
     webhook = SyncWebhook.from_url(config.SCRAPER_WEBHOOK_URL)
 
     try:
         with storage.lock():
-            sections = _run_scrapers()
+            sections = _run_scrapers(scrapers)
     except storage.LockHeldError as err:
         logger.error("could not acquire %s: %s", storage.LOCK_KEY, err)
         post(webhook, f"Failed to acquire lock, skipped: {err}")
@@ -53,9 +82,9 @@ def main() -> None:
     post(webhook, "\n\n".join(sections))
 
 
-def _run_scrapers() -> list[str]:
+def _run_scrapers(scrapers: dict[str, Scraper]) -> list[str]:
     sections: list[str] = []
-    for name, scrape in SCRAPERS.items():
+    for name, scrape in scrapers.items():
         updates: list[str] = []
         error: str | None
         try:

@@ -12,3 +12,6 @@ check:
     uv run --group dev ruff format --check .
 
 lint: static check
+
+scrape-local:
+    uv run python -m kanade.scrapers --local

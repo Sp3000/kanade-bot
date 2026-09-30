@@ -192,3 +192,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Local storage backend output (kanade.storage.use_local_storage)
+data/*
+!data/.gitkeep

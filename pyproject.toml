@@ -6,6 +6,7 @@ description = "Discord bot for SOUND VOLTEX song information and utilities"
 readme = "README.md"
 dependencies = [
     "boto3>=1.43.105",
+    "beautifulsoup4>=4.14.0",
     "discord-py==2.5.2",
     "requests==2.34.2",
 ]

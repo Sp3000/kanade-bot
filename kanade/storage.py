@@ -1,9 +1,9 @@
-"""S3-backed storage system.
+"""Storage system: S3-backed for prod, or local files in ./data for testing.
 
-Bucket layout:
+Storage layout:
   - songs.json
   - changes.jsonl
-  - write.lock
+  - write.lock (prod only)
 """
 
 import contextlib
@@ -12,6 +12,7 @@ import logging
 import time
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -40,8 +41,28 @@ _s3_client: S3Client = boto3.client(
 )
 
 
+class _LocalMode:
+    """Tracks whether storage operations are redirected to a local directory."""
+
+    dir: Path | None = None
+
+
+_local = _LocalMode()
+
+
+def use_local_storage() -> None:
+    """Store data under ./data instead of S3."""
+    local_dir = Path.cwd() / "data"
+    local_dir.mkdir(exist_ok=True)
+    _local.dir = local_dir
+
+
 def _get(key: str) -> bytes | None:
     """Fetch an object's body, or None if it doesn't exist yet."""
+    if _local.dir is not None:
+        path = _local.dir / key
+        return path.read_bytes() if path.exists() else None
+
     try:
         return _s3_client.get_object(Bucket=config.KANADE_S3_BUCKET, Key=key)[
             "Body"
@@ -50,6 +71,17 @@ def _get(key: str) -> bytes | None:
         if err.response["Error"]["Code"] == "NoSuchKey":
             return None
         raise
+
+
+def _put(key: str, body: bytes, content_type: str) -> None:
+    """Write an object's body, either locally or to S3."""
+    if _local.dir is not None:
+        (_local.dir / key).write_bytes(body)
+        return
+
+    _s3_client.put_object(
+        Bucket=config.KANADE_S3_BUCKET, Key=key, Body=body, ContentType=content_type
+    )
 
 
 def load_songs() -> list[dict[str, Any]]:
@@ -63,12 +95,7 @@ def load_songs() -> list[dict[str, Any]]:
 
 def save_songs(songs: list[dict[str, Any]]) -> None:
     """Overwrite the songs snapshot. Assumes caller has the write lock."""
-    _s3_client.put_object(
-        Bucket=config.KANADE_S3_BUCKET,
-        Key=SONGS_KEY,
-        Body=json.dumps(songs, indent=2).encode(),
-        ContentType="application/json",
-    )
+    _put(SONGS_KEY, json.dumps(songs, indent=2).encode(), "application/json")
 
 
 def append_changes(events: list[dict[str, Any]]) -> None:
@@ -78,22 +105,21 @@ def append_changes(events: list[dict[str, Any]]) -> None:
     body = _get(CHANGES_KEY)
     lines = body.decode().splitlines() if body else []
     lines.extend(json.dumps(event) for event in events)
-    _s3_client.put_object(
-        Bucket=config.KANADE_S3_BUCKET,
-        Key=CHANGES_KEY,
-        Body=("\n".join(lines) + "\n").encode(),
-        ContentType="application/x-ndjson",
-    )
+    _put(CHANGES_KEY, ("\n".join(lines) + "\n").encode(), "application/x-ndjson")
 
 
 @contextlib.contextmanager
 def lock() -> Iterator[None]:
     """Hold the write lock for the duration of the block.
 
-    Uses S3's conditional-write support.
+    Only used for prod. Uses S3's conditional-write support.
 
     Raises LockHeldError if another run holds a lock that isn't stale yet.
     """
+    if _local.dir is not None:
+        yield
+        return
+
     payload = json.dumps(
         {"acquired_at": time.time(), "run_id": str(uuid.uuid4())}
     ).encode()
