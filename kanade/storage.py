@@ -95,16 +95,24 @@ def load_songs() -> list[dict[str, Any]]:
 
 def save_songs(songs: list[dict[str, Any]]) -> None:
     """Overwrite the songs snapshot. Assumes caller has the write lock."""
-    _put(SONGS_KEY, json.dumps(songs, indent=2).encode(), "application/json")
+    _put(
+        SONGS_KEY,
+        json.dumps(songs, indent=2, ensure_ascii=False).encode(),
+        "application/json",
+    )
 
 
 def append_changes(events: list[dict[str, Any]]) -> None:
     """Append change events to the log. Assumes caller has the write lock."""
     if not events:
         return
+
+    ts = time.time()
     body = _get(CHANGES_KEY)
     lines = body.decode().splitlines() if body else []
-    lines.extend(json.dumps(event) for event in events)
+    lines.extend(
+        json.dumps({"ts": ts, **event}, ensure_ascii=False) for event in events
+    )
     _put(CHANGES_KEY, ("\n".join(lines) + "\n").encode(), "application/x-ndjson")
 
 

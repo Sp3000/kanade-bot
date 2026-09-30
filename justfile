@@ -13,5 +13,8 @@ check:
 
 lint: static check
 
+scrape-prod:
+    uv run python -m kanade.scrapers
+
 scrape-local:
     uv run python -m kanade.scrapers --local

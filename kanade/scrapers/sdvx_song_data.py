@@ -20,7 +20,12 @@ SONG_LIST_URL = "https://p.eagate.573.jp/game/sdvx/vii/music/index.html"
 
 
 def _iter_song_elements() -> Iterator[Tag]:
-    """Yield every song entry from the paginated song list."""
+    """Yield every song entry from the paginated song list, oldest first.
+
+    The site lists newest songs first (both across and within pages), so all
+    pages are fetched before replaying them in reverse.
+    """
+    all_elements: list[Tag] = []
     page = 1
     while True:
         logger.info("Fetching song list page %d", page)
@@ -28,13 +33,15 @@ def _iter_song_elements() -> Iterator[Tag]:
         response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
 
-        song_elements = soup.find_all(class_="music")
-        if not song_elements:
+        page_elements = soup.find_all(class_="music")
+        if not page_elements:
             break
 
-        yield from song_elements
+        all_elements.extend(page_elements)
         page += 1
         time.sleep(1)
+
+    yield from reversed(all_elements)
 
 
 def _parse_song(song_element: Tag) -> Song:
