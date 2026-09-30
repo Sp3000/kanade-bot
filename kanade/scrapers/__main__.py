@@ -103,7 +103,13 @@ def _run_scrapers(scrapers: dict[str, Scraper]) -> list[str]:
 
         logger.info("%s: %d update(s), %s", name, len(updates), error or "ok")
 
-        body = "\n".join(f"- {u}" for u in updates)
+        if updates:
+            body = "\n".join(f"- {u}" for u in updates)
+        elif not error:
+            body = "No updates."
+        else:
+            body = ""
+
         if error:
             body += ("\n\n" if updates else "") + error
         heading = f"{'❌' if error else '✅'} **{name}**"
