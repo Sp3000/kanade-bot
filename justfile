@@ -18,3 +18,6 @@ scrape-prod:
 
 scrape-local:
     uv run python -m kanade.scrapers --local
+
+deploy:
+    git push heroku main
