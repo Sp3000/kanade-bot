@@ -9,7 +9,7 @@ import logging
 
 from discord import SyncWebhook
 
-from .. import config
+from .. import config, storage
 from . import hello
 
 logger = logging.getLogger(__name__)
@@ -33,12 +33,31 @@ def post(webhook: SyncWebhook, text: str) -> None:
 
 
 def main() -> None:
+    """Run scrapers under the write lock and report results to the webhook."""
     config.setup_logging()
     webhook = SyncWebhook.from_url(config.SCRAPER_WEBHOOK_URL)
 
+    try:
+        with storage.lock():
+            sections = _run_scrapers()
+    except storage.LockHeldError as exc:
+        logger.error("could not acquire %s: %s", storage.LOCK_KEY, exc)
+        post(webhook, f"Failed to acquire lock, skipped: {exc}")
+        return
+    except Exception as exc:
+        # Should not happen, but just in case it does.
+        logger.exception("scraper run crashed")
+        post(webhook, f"Scraper run crashed: {exc!r}")
+        raise
+
+    post(webhook, "\n\n".join(sections))
+
+
+def _run_scrapers() -> list[str]:
     sections: list[str] = []
     for name, scrape in SCRAPERS.items():
         updates: list[str] = []
+        error: str | None
         try:
             for update in scrape():
                 updates.append(update)  # noqa: PERF402
@@ -55,8 +74,7 @@ def main() -> None:
             body += ("\n\n" if updates else "") + error
         heading = f"{'❌' if error else '✅'} **{name}**"
         sections.append(f"{heading}\n{body}" if body else heading)
-
-    post(webhook, "\n\n".join(sections))
+    return sections
 
 
 if __name__ == "__main__":

@@ -5,6 +5,20 @@ requires-python = ">=3.13"
 description = "Discord bot for SOUND VOLTEX song information and utilities"
 readme = "README.md"
 dependencies = [
+    "boto3>=1.43.105",
     "discord-py==2.5.2",
     "requests==2.34.2",
+]
+
+[tool.ruff.lint]
+extend-select = ["D", "PL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3]>=1.43.105",
+    "mypy>=2.3.1",
+    "ruff>=0.16.9",
 ]
