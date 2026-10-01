@@ -12,13 +12,14 @@ class Difficulty(OrderedEnum):
     ADV = ADVANCED = 1
     EXH = EXHAUST = 2
     MXM = MAXIMUM = 3
-    ULT = ULTIMATE = 4
-    INF = INFINITE = 5
-    GRV = GRAVITY = 6
-    HVN = HEAVENLY = 7
-    VVD = VIVID = 8
-    XCD = EXCEED = 9
-    NBL = NABLA = 10
+    INF = INFINITE = 4
+    GRV = GRAVITY = 5
+    HVN = HEAVENLY = 6
+    VVD = VIVID = 7
+    XCD = EXCEED = 8
+    NBL = NABLA = 9
+    # Should always be displayed after all the 4th difficulties.
+    ULT = ULTIMATE = 99
 
     @property
     def sdvxin_letter(self) -> str:
@@ -48,13 +49,13 @@ DIFFICULTY_TO_COLOR: dict[Difficulty, str] = {
     Difficulty.ADV: "#f9f049",
     Difficulty.EXH: "#fe4a79",
     Difficulty.MXM: "#e2e2e2",
-    Difficulty.ULT: "#ffdd57",
     Difficulty.INF: "#ff00ff",
     Difficulty.GRV: "#e5720a",
     Difficulty.HVN: "#009aff",
     Difficulty.VVD: "#f82374",
     Difficulty.XCD: "#3568aa",
     Difficulty.NBL: "#95dd03",
+    Difficulty.ULT: "#ffdd57",
 }
 
 

@@ -29,7 +29,7 @@ def _iter_song_elements() -> Iterator[Tag]:
     page = 1
     while True:
         logger.info("Fetching song list page %d", page)
-        response = requests.get(SONG_LIST_URL, params={"page": page})
+        response = requests.get(SONG_LIST_URL, params={"page": page}, timeout=30)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
 

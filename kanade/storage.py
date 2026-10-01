@@ -39,6 +39,7 @@ class LockHeldError(RuntimeError):
 
 _s3_client: "S3Client" = boto3.client(
     "s3",
+    region_name=config.KANADE_S3_REGION,
     aws_access_key_id=config.KANADE_S3_ACCESS_KEY_ID,
     aws_secret_access_key=config.KANADE_S3_SECRET_ACCESS_KEY,
 )

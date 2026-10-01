@@ -36,6 +36,11 @@ def post(webhook: SyncWebhook, text: str) -> None:
         webhook.send(text)
 
 
+def _module_name(scrape: Scraper) -> str:
+    """Return the short name of the module a scraper is defined in."""
+    return scrape.__module__.rpartition(".")[2]
+
+
 def _parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
@@ -46,10 +51,10 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--only",
-        choices=sorted(SCRAPERS),
+        choices=sorted(_module_name(scrape) for scrape in SCRAPERS.values()),
         action="append",
-        metavar="NAME",
-        help="Only run this scraper (repeatable). Defaults to all scrapers.",
+        metavar="MODULE",
+        help="Only run the scraper in this module (repeatable). Defaults to all.",
     )
     return parser.parse_args()
 
@@ -69,7 +74,11 @@ def main() -> None:
         def report(text: str) -> None:
             post(webhook, text)
 
-    scrapers = {name: SCRAPERS[name] for name in (args.only or SCRAPERS)}
+    scrapers = {
+        name: scrape
+        for name, scrape in SCRAPERS.items()
+        if not args.only or _module_name(scrape) in args.only
+    }
 
     try:
         with storage.lock():
