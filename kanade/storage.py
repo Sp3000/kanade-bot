@@ -13,13 +13,16 @@ import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3.client import S3Client
 
 from . import config
+
+if TYPE_CHECKING:
+    # boto3-stubs is dev-only; this import would fail in production.
+    from mypy_boto3_s3.client import S3Client
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class LockHeldError(RuntimeError):
     """Raised when write.lock is held by another, non-stale run."""
 
 
-_s3_client: S3Client = boto3.client(
+_s3_client: "S3Client" = boto3.client(
     "s3",
     aws_access_key_id=config.KANADE_S3_ACCESS_KEY_ID,
     aws_secret_access_key=config.KANADE_S3_SECRET_ACCESS_KEY,
